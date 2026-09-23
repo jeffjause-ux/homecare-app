@@ -56,6 +56,25 @@ jobs:
           flutter create . --platforms=windows,android --project-name home_maintenance_app --org com.homecare
           flutter pub get
         shell: bash
+              - name: Fix Android desugaring for notifications
+        run: |
+          echo "Fixing android/app/build.gradle for flutter_local_notifications"
+          FILE="android/app/build.gradle"
+          if [ ! -f "$FILE" ]; then
+            FILE="android/app/build.gradle.kts"
+          fi
+          # Add coreLibraryDesugaring dependency if missing
+          if ! grep -q "desugar_jdk_libs" "$FILE"; then
+            sed -i "/dependencies {/a \    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'" "$FILE"
+          fi
+          # Enable coreLibraryDesugaringEnabled
+          if grep -q "coreLibraryDesugaringEnabled" "$FILE"; then
+            sed -i "s/coreLibraryDesugaringEnabled.*/coreLibraryDesugaringEnabled true/" "$FILE"
+          else
+            sed -i "/compileOptions {/a \        isCoreLibraryDesugaringEnabled = true\n        coreLibraryDesugaringEnabled true" "$FILE"
+          fi
+          cat "$FILE"
+        shell: bash
       - name: Build APK
         run: flutter build apk --release
       - name: Upload APK
