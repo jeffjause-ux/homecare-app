@@ -50,43 +50,59 @@ jobs:
         with:
           channel: stable
           cache: false
-      - name: Recreate platforms without overwriting lib
+      - name: Recreate platforms and FIX desugaring file completely
         run: |
           rm -rf windows android
           flutter create . --platforms=windows,android --project-name home_maintenance_app --org com.homecare
           flutter pub get
-        shell: bash
-      - name: Fix Android desugaring for notifications
-        run: |
-          python3 << 'PY'
-          import pathlib, re
-          kts = pathlib.Path("android/app/build.gradle.kts")
-          gradle = pathlib.Path("android/app/build.gradle")
-          if kts.exists():
-              p = kts
-              text = p.read_text()
-              print("Fixing KTS file")
-              # 1. Ensure compileOptions has isCoreLibraryDesugaringEnabled = true
-              if "isCoreLibraryDesugaringEnabled" not in text:
-                  text = text.replace("compileOptions {", "compileOptions {\n        isCoreLibraryDesugaringEnabled = true")
-              # 2. Ensure dependencies has the desugar lib
-              if "desugar_jdk_libs" not in text:
-                  text = text.replace("dependencies {", 'dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")')
-              p.write_text(text)
-              print(p.read_text()[:2000])
-          elif gradle.exists():
-              p = gradle
-              text = p.read_text()
-              print("Fixing Groovy file")
-              if "coreLibraryDesugaringEnabled" not in text:
-                  text = text.replace("compileOptions {", "compileOptions {\n        coreLibraryDesugaringEnabled true")
-              if "desugar_jdk_libs" not in text:
-                  text = text.replace("dependencies {", "dependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'")
-              p.write_text(text)
-              print(p.read_text()[:2000])
-          else:
-              print("No build file found!")
-          PY
+          cat > android/app/build.gradle.kts << 'KTS'
+          plugins {
+              id("com.android.application")
+              id("kotlin-android")
+              id("dev.flutter.flutter-gradle-plugin")
+          }
+
+          android {
+              namespace = "com.homecare.home_maintenance_app"
+              compileSdk = flutter.compileSdkVersion
+              ndkVersion = flutter.ndkVersion
+
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_1_8
+                  targetCompatibility = JavaVersion.VERSION_1_8
+                  isCoreLibraryDesugaringEnabled = true
+              }
+
+              kotlinOptions {
+                  jvmTarget = JavaVersion.VERSION_1_8.toString()
+              }
+
+              defaultConfig {
+                  applicationId = "com.homecare.home_maintenance_app"
+                  minSdk = flutter.minSdkVersion
+                  targetSdk = flutter.targetSdkVersion
+                  versionCode = flutter.versionCode
+                  versionName = flutter.versionName
+              }
+
+              buildTypes {
+                  release {
+                      isMinifyEnabled = false
+                      isShrinkResources = false
+                  }
+              }
+          }
+
+          flutter {
+              source = "../.."
+          }
+
+          dependencies {
+              coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+          }
+          KTS
+          echo "=== NEW build.gradle.kts ==="
+          cat android/app/build.gradle.kts
         shell: bash
       - name: Build APK
         run: flutter build apk --release
