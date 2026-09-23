@@ -14,13 +14,13 @@ jobs:
         with:
           channel: stable
           cache: false
-      - name: Force recreate Windows files for VS2022
+      - name: Create Windows platform only
         run: |
           flutter --version
           flutter config --enable-windows-desktop
-          Remove-Item -Recurse -Force windows -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force android -ErrorAction SilentlyContinue
-          flutter create . --platforms=windows,android --project-name home_maintenance_app --org com.homecare --overwrite
+          if (Test-Path windows) { Remove-Item -Recurse -Force windows }
+          if (Test-Path android) { Remove-Item -Recurse -Force android }
+          flutter create . --platforms=windows,android --project-name home_maintenance_app --org com.homecare
           flutter pub get
       - name: Build Windows Release
         run: flutter build windows --release
@@ -50,11 +50,10 @@ jobs:
         with:
           channel: stable
           cache: false
-      - name: Recreate platforms
+      - name: Recreate platforms without overwriting lib
         run: |
-          Remove-Item -Recurse -Force windows -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force android -ErrorAction SilentlyContinue
-          flutter create . --platforms=windows,android --project-name home_maintenance_app --org com.homecare --overwrite
+          rm -rf windows android
+          flutter create . --platforms=windows,android --project-name home_maintenance_app --org com.homecare
           flutter pub get
         shell: bash
       - name: Build APK
