@@ -50,17 +50,30 @@ jobs:
         with:
           channel: stable
           cache: false
-      - name: Recreate platforms with OLD DSL enabled + desugaring
+      - name: Recreate platforms and PIN to AGP 8.7.3 + desugaring
         run: |
           rm -rf windows android
           flutter create . --platforms=windows,android --project-name home_maintenance_app --org com.homecare
           flutter pub get
-          # Disable AGP 9.0 newDsl so old android{} block works
-          echo "android.newDsl=false" >> android/gradle.properties
-          echo "android.suppressUnsupportedNewDsl=true" >> android/gradle.properties
-          cat android/gradle.properties
-          # Now write the classic working file with desugaring included
-          cat > android/app/build.gradle.kts << 'KTS'
+          # Pin AGP to 8.7.3 (not 9.0) and Kotlin to 2.1.0
+          python3 << 'PY'
+          import pathlib
+          settings = pathlib.Path("android/settings.gradle.kts")
+          if settings.exists():
+              txt = settings.read_text()
+              # Force AGP 8.7.3
+              txt = txt.replace('9.0.0', '8.7.3')
+              txt = txt.replace('9.0', '8.7.3')
+              # Ensure it explicitly says 8.7.3
+              if 'com.android.application' in txt and '8.7.3' not in txt:
+                  import re
+                  txt = re.sub(r'id\("com.android.application"\) version "[^"]+"', 'id("com.android.application") version "8.7.3"', txt)
+              settings.write_text(txt)
+              print(settings.read_text()[:3000])
+          
+          # Write app build file with desugaring (old DSL that works on AGP 8.7.3)
+          app_build = pathlib.Path("android/app/build.gradle.kts")
+          app_build.write_text('''
           plugins {
               id("com.android.application")
               id("kotlin-android")
@@ -105,8 +118,9 @@ jobs:
           dependencies {
               coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
           }
-          KTS
-          cat android/app/build.gradle.kts
+          ''')
+          print(app_build.read_text())
+          PY
         shell: bash
       - name: Build APK
         run: flutter build apk --release
