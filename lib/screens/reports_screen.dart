@@ -1,0 +1,5 @@
+
+import 'package:flutter/material.dart';
+import '../widgets/adaptive_layout.dart';
+import 'package:fl_chart/fl_chart.dart';
+class ReportsScreen extends StatelessWidget { const ReportsScreen({super.key}); @override Widget build(BuildContext context) => AdaptiveScaffold(title: 'Reports', selectedIndex: 5, child: ListView(padding: EdgeInsets.all(16), children: [Text('Cost Summary 2026', style: Theme.of(context).textTheme.titleLarge), SizedBox(height: 12), SizedBox(height: 200, child: BarChart(BarChartData(barGroups: [BarChartGroupData(x: 0, barRods: [BarChartRodData(toY: 220)]), BarChartGroupData(x: 1, barRods: [BarChartRodData(toY: 45)]), BarChartGroupData(x: 2, barRods: [BarChartRodData(toY: 180)]), BarChartGroupData(x: 3, barRods: [BarChartRodData(toY: 90)])]))), SizedBox(height: 16), Row(children: [FilledButton.icon(onPressed: (){}, icon: Icon(Icons.picture_as_pdf), label: Text('Export PDF')), SizedBox(width: 12), OutlinedButton.icon(onPressed: (){}, icon: Icon(Icons.table_chart), label: Text('Export CSV'))])])); }

@@ -1,0 +1,1 @@
+class AppConstants { static const appName = 'HomeCare'; static const version = '1.0.0'; }
