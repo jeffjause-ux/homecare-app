@@ -50,11 +50,16 @@ jobs:
         with:
           channel: stable
           cache: false
-      - name: Recreate platforms and write AGP 9.0 compatible file
+      - name: Recreate platforms with OLD DSL enabled + desugaring
         run: |
           rm -rf windows android
           flutter create . --platforms=windows,android --project-name home_maintenance_app --org com.homecare
           flutter pub get
+          # Disable AGP 9.0 newDsl so old android{} block works
+          echo "android.newDsl=false" >> android/gradle.properties
+          echo "android.suppressUnsupportedNewDsl=true" >> android/gradle.properties
+          cat android/gradle.properties
+          # Now write the classic working file with desugaring included
           cat > android/app/build.gradle.kts << 'KTS'
           plugins {
               id("com.android.application")
@@ -73,6 +78,10 @@ jobs:
                   isCoreLibraryDesugaringEnabled = true
               }
 
+              kotlinOptions {
+                  jvmTarget = JavaVersion.VERSION_1_8.toString()
+              }
+
               defaultConfig {
                   applicationId = "com.homecare.home_maintenance_app"
                   minSdk = flutter.minSdkVersion
@@ -86,12 +95,6 @@ jobs:
                       isMinifyEnabled = false
                       isShrinkResources = false
                   }
-              }
-          }
-
-          android {
-              compilerOptions {
-                  jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8
               }
           }
 
