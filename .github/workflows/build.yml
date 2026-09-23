@@ -5,22 +5,23 @@ on:
   workflow_dispatch:
 jobs:
   build-windows:
-    name: Build Windows .exe + MSIX
+    name: Build Windows .exe
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Flutter
+      - name: Setup Flutter - LATEST
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: '3.22.x'
-      - name: Create missing platforms
+          cache: false
+      - name: Force recreate Windows files for VS2022
         run: |
-          flutter create . --platforms=windows,android --project-name home_maintenance_app --org com.homecare
+          flutter --version
+          flutter config --enable-windows-desktop
+          Remove-Item -Recurse -Force windows -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force android -ErrorAction SilentlyContinue
+          flutter create . --platforms=windows,android --project-name home_maintenance_app --org com.homecare --overwrite
           flutter pub get
-      - name: Generate Drift code
-        run: flutter pub run build_runner build --delete-conflicting-outputs
-        continue-on-error: true
       - name: Build Windows Release
         run: flutter build windows --release
       - name: Create portable ZIP
@@ -35,7 +36,7 @@ jobs:
           retention-days: 30
 
   build-android:
-    name: Build Android APK + AAB
+    name: Build Android APK
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,18 +45,18 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-      - name: Setup Flutter
+      - name: Setup Flutter - LATEST
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: '3.22.x'
-      - name: Create missing platforms
+          cache: false
+      - name: Recreate platforms
         run: |
-          flutter create . --platforms=windows,android --project-name home_maintenance_app --org com.homecare
+          Remove-Item -Recurse -Force windows -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force android -ErrorAction SilentlyContinue
+          flutter create . --platforms=windows,android --project-name home_maintenance_app --org com.homecare --overwrite
           flutter pub get
-      - name: Generate Drift code
-        run: flutter pub run build_runner build --delete-conflicting-outputs
-        continue-on-error: true
+        shell: bash
       - name: Build APK
         run: flutter build apk --release
       - name: Upload APK
