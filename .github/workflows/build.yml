@@ -50,76 +50,44 @@ jobs:
         with:
           channel: stable
           cache: false
-      - name: Recreate platforms and PIN to AGP 8.7.3 + desugaring
+      - name: Recreate platforms - PIN to 8.11.1 + patch desugaring
         run: |
           rm -rf windows android
           flutter create . --platforms=windows,android --project-name home_maintenance_app --org com.homecare
           flutter pub get
-          # Pin AGP to 8.7.3 (not 9.0) and Kotlin to 2.1.0
           python3 << 'PY'
-          import pathlib
+          import pathlib, re
+          # 1. PIN AGP to 8.11.1 in settings.gradle.kts
           settings = pathlib.Path("android/settings.gradle.kts")
-          if settings.exists():
-              txt = settings.read_text()
-              # Force AGP 8.7.3
-              txt = txt.replace('9.0.0', '8.7.3')
-              txt = txt.replace('9.0', '8.7.3')
-              # Ensure it explicitly says 8.7.3
-              if 'com.android.application' in txt and '8.7.3' not in txt:
-                  import re
-                  txt = re.sub(r'id\("com.android.application"\) version "[^"]+"', 'id("com.android.application") version "8.7.3"', txt)
-              settings.write_text(txt)
-              print(settings.read_text()[:3000])
-          
-          # Write app build file with desugaring (old DSL that works on AGP 8.7.3)
-          app_build = pathlib.Path("android/app/build.gradle.kts")
-          app_build.write_text('''
-          plugins {
-              id("com.android.application")
-              id("kotlin-android")
-              id("dev.flutter.flutter-gradle-plugin")
-          }
+          txt = settings.read_text()
+          txt = re.sub(r'id\("com.android.application"\) version "[^"]+"', 'id("com.android.application") version "8.11.1"', txt)
+          txt = re.sub(r'id\("com.android.tools.build"\) version "[^"]+"', 'id("com.android.tools.build") version "8.11.1"', txt)
+          # handle any 9.x reference
+          txt = txt.replace('9.0.0', '8.11.1').replace('9.0', '8.11.1')
+          settings.write_text(txt)
+          print("=== settings.gradle.kts ===")
+          print(settings.read_text()[:2000])
 
-          android {
-              namespace = "com.homecare.home_maintenance_app"
-              compileSdk = flutter.compileSdkVersion
-              ndkVersion = flutter.ndkVersion
+          # 2. PATCH app/build.gradle.kts - add desugaring to Flutter's own file, don't replace it
+          app = pathlib.Path("android/app/build.gradle.kts")
+          t = app.read_text()
+          print("\n=== BEFORE PATCH app/build.gradle.kts ===")
+          print(t[:3000])
 
-              compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_1_8
-                  targetCompatibility = JavaVersion.VERSION_1_8
-                  isCoreLibraryDesugaringEnabled = true
-              }
+          # Add isCoreLibraryDesugaringEnabled = true inside compileOptions if missing
+          if "isCoreLibraryDesugaringEnabled" not in t:
+              t = t.replace("compileOptions {", "compileOptions {\n        isCoreLibraryDesugaringEnabled = true")
 
-              kotlinOptions {
-                  jvmTarget = JavaVersion.VERSION_1_8.toString()
-              }
+          # Add desugar dependency inside dependencies if missing
+          if "desugar_jdk_libs" not in t:
+              if "dependencies {" in t:
+                  t = t.replace("dependencies {", 'dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")')
+              else:
+                  t += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
 
-              defaultConfig {
-                  applicationId = "com.homecare.home_maintenance_app"
-                  minSdk = flutter.minSdkVersion
-                  targetSdk = flutter.targetSdkVersion
-                  versionCode = flutter.versionCode
-                  versionName = flutter.versionName
-              }
-
-              buildTypes {
-                  release {
-                      isMinifyEnabled = false
-                      isShrinkResources = false
-                  }
-              }
-          }
-
-          flutter {
-              source = "../.."
-          }
-
-          dependencies {
-              coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
-          }
-          ''')
-          print(app_build.read_text())
+          app.write_text(t)
+          print("\n=== AFTER PATCH ===")
+          print(app.read_text()[:3000])
           PY
         shell: bash
       - name: Build APK
