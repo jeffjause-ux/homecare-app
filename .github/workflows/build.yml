@@ -58,27 +58,35 @@ jobs:
         shell: bash
       - name: Fix Android desugaring for notifications
         run: |
-          echo "Fixing Android for flutter_local_notifications"
-          if [ -f "android/app/build.gradle.kts" ]; then
-            FILE="android/app/build.gradle.kts"
-            echo "Found KTS file: $FILE"
-            if ! grep -q "desugar_jdk_libs" "$FILE"; then
-              sed -i '/dependencies {/a \    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")' "$FILE"
-            fi
-            if ! grep -q "isCoreLibraryDesugaringEnabled" "$FILE"; then
-              sed -i '/compileOptions {/a \        isCoreLibraryDesugaringEnabled = true' "$FILE"
-            fi
-          else
-            FILE="android/app/build.gradle"
-            echo "Found Groovy file: $FILE"
-            if ! grep -q "desugar_jdk_libs" "$FILE"; then
-              sed -i "/dependencies {/a \    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'" "$FILE"
-            fi
-            if ! grep -q "coreLibraryDesugaringEnabled" "$FILE"; then
-              sed -i "/compileOptions {/a \        coreLibraryDesugaringEnabled true" "$FILE"
-            fi
-          fi
-          cat "$FILE"
+          python3 << 'PY'
+          import pathlib, re
+          kts = pathlib.Path("android/app/build.gradle.kts")
+          gradle = pathlib.Path("android/app/build.gradle")
+          if kts.exists():
+              p = kts
+              text = p.read_text()
+              print("Fixing KTS file")
+              # 1. Ensure compileOptions has isCoreLibraryDesugaringEnabled = true
+              if "isCoreLibraryDesugaringEnabled" not in text:
+                  text = text.replace("compileOptions {", "compileOptions {\n        isCoreLibraryDesugaringEnabled = true")
+              # 2. Ensure dependencies has the desugar lib
+              if "desugar_jdk_libs" not in text:
+                  text = text.replace("dependencies {", 'dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")')
+              p.write_text(text)
+              print(p.read_text()[:2000])
+          elif gradle.exists():
+              p = gradle
+              text = p.read_text()
+              print("Fixing Groovy file")
+              if "coreLibraryDesugaringEnabled" not in text:
+                  text = text.replace("compileOptions {", "compileOptions {\n        coreLibraryDesugaringEnabled true")
+              if "desugar_jdk_libs" not in text:
+                  text = text.replace("dependencies {", "dependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'")
+              p.write_text(text)
+              print(p.read_text()[:2000])
+          else:
+              print("No build file found!")
+          PY
         shell: bash
       - name: Build APK
         run: flutter build apk --release
