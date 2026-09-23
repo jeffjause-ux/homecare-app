@@ -50,7 +50,7 @@ jobs:
         with:
           channel: stable
           cache: false
-      - name: Recreate platforms and FIX desugaring file completely
+      - name: Recreate platforms and write AGP 9.0 compatible file
         run: |
           rm -rf windows android
           flutter create . --platforms=windows,android --project-name home_maintenance_app --org com.homecare
@@ -73,10 +73,6 @@ jobs:
                   isCoreLibraryDesugaringEnabled = true
               }
 
-              kotlinOptions {
-                  jvmTarget = JavaVersion.VERSION_1_8.toString()
-              }
-
               defaultConfig {
                   applicationId = "com.homecare.home_maintenance_app"
                   minSdk = flutter.minSdkVersion
@@ -93,6 +89,12 @@ jobs:
               }
           }
 
+          android {
+              compilerOptions {
+                  jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8
+              }
+          }
+
           flutter {
               source = "../.."
           }
@@ -101,7 +103,6 @@ jobs:
               coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
           }
           KTS
-          echo "=== NEW build.gradle.kts ==="
           cat android/app/build.gradle.kts
         shell: bash
       - name: Build APK
