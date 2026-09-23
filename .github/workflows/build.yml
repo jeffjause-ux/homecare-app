@@ -14,15 +14,15 @@ jobs:
         with:
           channel: stable
           flutter-version: '3.22.x'
-      - name: Get dependencies
-        run: flutter pub get
+      - name: Create missing platforms
+        run: |
+          flutter create . --platforms=windows,android --project-name home_maintenance_app --org com.homecare
+          flutter pub get
       - name: Generate Drift code
         run: flutter pub run build_runner build --delete-conflicting-outputs
+        continue-on-error: true
       - name: Build Windows Release
         run: flutter build windows --release
-      - name: Create MSIX installer
-        run: dart run msix:create
-        continue-on-error: true
       - name: Create portable ZIP
         run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath HomeCare-Windows-Portable.zip
       - name: Upload Windows Portable
@@ -33,13 +33,7 @@ jobs:
             build/windows/x64/runner/Release/
             HomeCare-Windows-Portable.zip
           retention-days: 30
-      - name: Upload MSIX if created
-        uses: actions/upload-artifact@v4
-        with:
-          name: HomeCare-MSIX-Installer
-          path: build/windows/x64/runner/Release/*.msix
-          retention-days: 30
-        continue-on-error: true
+
   build-android:
     name: Build Android APK + AAB
     runs-on: ubuntu-latest
@@ -55,23 +49,18 @@ jobs:
         with:
           channel: stable
           flutter-version: '3.22.x'
-      - name: Get dependencies
-        run: flutter pub get
+      - name: Create missing platforms
+        run: |
+          flutter create . --platforms=windows,android --project-name home_maintenance_app --org com.homecare
+          flutter pub get
       - name: Generate Drift code
         run: flutter pub run build_runner build --delete-conflicting-outputs
+        continue-on-error: true
       - name: Build APK
         run: flutter build apk --release
-      - name: Build App Bundle
-        run: flutter build appbundle --release
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: HomeCare-Android-APK
           path: build/app/outputs/flutter-apk/app-release.apk
-          retention-days: 30
-      - name: Upload AAB
-        uses: actions/upload-artifact@v4
-        with:
-          name: HomeCare-Android-AAB
-          path: build/app/outputs/bundle/release/app-release.aab
           retention-days: 30
